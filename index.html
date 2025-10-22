@@ -29,10 +29,12 @@ th { text-align:left; color:#9aa4b2; font-weight:600;}
 <tr><td colspan="3" style="text-align:center;color:#9aa4b2;">Загрузка...</td></tr>
 </tbody>
 </table>
+
 <!-- подпись с ссылкой на чат -->
 <div style="margin-top:20px; font-size:14px; color:#9aa4b2; text-align:center;">
   Публичный рейтинг уловов из <a href="https://t.me/fishingirk" target="_blank" style="color:#5da5ff; text-decoration:none;">чата рыбалки Иркутска</a>
 </div>
+
 <script>
 // ссылка на опубликованную таблицу
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT6FBUUpUCMBsGcHHpwt7Jks0Zsz3AdMJT-ZqGHWAbgV3Hb8EJiBwhrggDcGGFZarW0MCiNkByH_r9X/pub?output=csv';
@@ -47,12 +49,16 @@ async function fetchCsv(url){
 function parseCSV(text){
   const lines = text.split(/\r?\n/).filter(Boolean);
   if(lines.length<2) return [];
-  const headers = lines[0].split(',');
   const nameIdx = 0;
   const weightIdx = 1;
+  const dateIdx = 3; // колонка D
   return lines.slice(1).map(row=>{
     const cols = row.split(',');
-    return {name: cols[nameIdx].trim(), weight: parseFloat(cols[weightIdx])||0};
+    return {
+      name: cols[nameIdx].trim(),
+      weight: parseFloat(cols[weightIdx])||0,
+      date: cols[dateIdx] ? new Date(cols[dateIdx].trim()) : new Date()
+    };
   });
 }
 
@@ -80,14 +86,30 @@ async function update(){
   try{
     const csv = await fetchCsv(CSV_URL);
     const parsed = parseCSV(csv);
+
+    // суммируем веса по имени и сохраняем самую раннюю дату
     const map = new Map();
     parsed.forEach(item=>{
       if(!item.name) return;
-      const prev = map.get(item.name) || 0;
-      map.set(item.name, prev + item.weight);
+      const prev = map.get(item.name) || {weight:0, date:item.date};
+      map.set(item.name, {
+        weight: prev.weight + item.weight,
+        date: prev.date < item.date ? prev.date : item.date // сохраняем раннюю дату
+      });
     });
-    const rows = Array.from(map.entries()).map(([name,weight])=>({name,weight}));
-    rows.sort((a,b)=>b.weight-a.weight);
+
+    const rows = Array.from(map.entries()).map(([name,val])=>({
+      name,
+      weight: val.weight,
+      date: val.date
+    }));
+
+    // сортировка: вес (убывание), при равном весе — дата (раньше = выше)
+    rows.sort((a,b)=>{
+      if(b.weight !== a.weight) return b.weight - a.weight;
+      return a.date - b.date;
+    });
+
     renderTable(rows);
   }catch(e){
     console.error(e);
@@ -98,7 +120,5 @@ update();
 </script>
 </body>
 </html>
-
-
 
 
