@@ -48,7 +48,7 @@ async function fetchCsv(url){
 
 function parseCSV(text){
   const lines = text.split(/\r?\n/).filter(Boolean);
-  if(lines.length<2) return [];
+  if(lines.length < 2) return [];
   const nameIdx = 0;
   const weightIdx = 1;
   const dateIdx = 3; // колонка D
@@ -56,7 +56,7 @@ function parseCSV(text){
     const cols = row.split(',');
     return {
       name: cols[nameIdx].trim(),
-      weight: parseFloat(cols[weightIdx])||0,
+      weight: parseFloat(cols[weightIdx]) || 0,
       date: cols[dateIdx] ? new Date(cols[dateIdx].trim()) : new Date()
     };
   });
@@ -87,24 +87,29 @@ async function update(){
     const csv = await fetchCsv(CSV_URL);
     const parsed = parseCSV(csv);
 
-    // суммируем веса по имени и сохраняем самую раннюю дату
+    // суммируем веса по имени и сохраняем дату первого улова
     const map = new Map();
     parsed.forEach(item=>{
       if(!item.name) return;
-      const prev = map.get(item.name) || {weight:0, date:item.date};
-      map.set(item.name, {
-        weight: prev.weight + item.weight,
-        date: prev.date < item.date ? prev.date : item.date // сохраняем раннюю дату
-      });
+      const prev = map.get(item.name);
+      if(prev){
+        map.set(item.name, {
+          weight: prev.weight + item.weight,
+          date: prev.date < item.date ? prev.date : item.date // сохраняем раннюю дату
+        });
+      } else {
+        map.set(item.name, {weight: item.weight, date: item.date});
+      }
     });
 
+    // формируем массив для сортировки
     const rows = Array.from(map.entries()).map(([name,val])=>({
       name,
       weight: val.weight,
       date: val.date
     }));
 
-    // сортировка: вес (убывание), при равном весе — дата (раньше = выше)
+    // сортировка: вес (убывание), при равном весе — дата первого улова
     rows.sort((a,b)=>{
       if(b.weight !== a.weight) return b.weight - a.weight;
       return a.date - b.date;
@@ -120,5 +125,3 @@ update();
 </script>
 </body>
 </html>
-
-
