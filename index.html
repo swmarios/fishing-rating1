@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Рейтинг уловов — Ноябрь 2025</title>
+<style>
+body { font-family: Arial,sans-serif; background:#071a2b; color:#e6eef6; margin:0; padding:20px;}
+h1 { font-size:24px; margin-bottom:6px;}
+p { color:#9aa4b2; margin-top:0; }
+table { width:100%; border-collapse:collapse; margin-top:12px;}
+th, td { padding:10px; border-top:1px solid rgba(255,255,255,0.1);}
+th { text-align:left; color:#9aa4b2; font-weight:600;}
+.place { width:50px; font-weight:700;}
+.weight { text-align:right; width:120px;}
+.gold{color:#ffd700;} .silver{color:#c0c0c0;} .bronze{color:#cd7f32;}
+.updated{color:#9aa4b2; font-size:13px; margin-top:10px;}
+</style>
+</head>
+<body>
+<h1>Рейтинг уловов — Ноябрь 2025</h1>
+<p>Топ 100 участников по суммарному весу (данные автоматически из Google Sheets)</p>
+
+<table id="rankTable">
+<thead>
+<tr><th class="place">#</th><th>Участник</th><th class="weight">Вес (кг)</th></tr>
+</thead>
+<tbody>
+<tr><td colspan="3" style="text-align:center;color:#9aa4b2;">Загрузка...</td></tr>
+</tbody>
+</table>
+
+<div class="updated" id="updatedAt"></div>
+
+<script>
+// ссылка на опубликованную таблицу
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT6FBUUpUCMBsGcHHpwt7Jks0Zsz3AdMJT-ZqGHWAbgV3Hb8EJiBwhrggDcGGFZarW0MCiNkByH_r9X/pub?output=csv';
+const MAX_ROWS = 100;
+
+async function fetchCsv(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error(res.status);
+  return await res.text();
+}
+
+function parseCSV(text){
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if(lines.length<2) return [];
+  const headers = lines[0].split(',');
+  const nameIdx = 0;
+  const weightIdx = 1;
+  return lines.slice(1).map(row=>{
+    const cols = row.split(',');
+    return {name: cols[nameIdx].trim(), weight: parseFloat(cols[weightIdx])||0};
+  });
+}
+
+function renderTable(rows){
+  const tbody = document.querySelector('#rankTable tbody');
+  tbody.innerHTML = '';
+  rows.slice(0, MAX_ROWS).forEach((r,i)=>{
+    const tr = document.createElement('tr');
+    const placeTd = document.createElement('td'); placeTd.className='place';
+    const nameTd = document.createElement('td'); nameTd.textContent = r.name;
+    const weightTd = document.createElement('td'); weightTd.className='weight'; weightTd.textContent = r.weight.toFixed(2);
+
+    if(i===0) placeTd.innerHTML = '<span class="gold">🥇 1</span>';
+    else if(i===1) placeTd.innerHTML = '<span class="silver">🥈 2</span>';
+    else if(i===2) placeTd.innerHTML = '<span class="bronze">🥉 3</span>';
+    else placeTd.textContent = i+1;
+
+    tr.appendChild(placeTd); tr.appendChild(nameTd); tr.appendChild(weightTd);
+    tbody.appendChild(tr);
+  });
+  document.getElementById('updatedAt').textContent = 'Обновлено: '+new Date().toLocaleString();
+}
+
+async function update(){
+  try{
+    const csv = await fetchCsv(CSV_URL);
+    const parsed = parseCSV(csv);
+    const map = new Map();
+    parsed.forEach(item=>{
+      if(!item.name) return;
+      const prev = map.get(item.name) || 0;
+      map.set(item.name, prev + item.weight);
+    });
+    const rows = Array.from(map.entries()).map(([name,weight])=>({name,weight}));
+    rows.sort((a,b)=>b.weight-a.weight);
+    renderTable(rows);
+  }catch(e){
+    console.error(e);
+  }
+}
+
+update();
+</script>
+</body>
+</html>
